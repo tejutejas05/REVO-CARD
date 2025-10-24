@@ -86,7 +86,7 @@ def register():
             return jsonify({'error': 'Email already registered'}), 400
         
         # Generate unique card ID
-        card_id = f"PGR-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}"
+        card_id = f"PGR-{datetime.utcnow().strftime('%Y%m%d%H%M%S')}" # kejwf
         
         business = Business(
             business_name=data['business_name'],
