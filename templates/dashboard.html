@@ -1,0 +1,265 @@
+{% extends "base.html" %}
+
+{% block title %}Dashboard - Petronet Green Rewards{% endblock %}
+
+{% block content %}
+<div class="dashboard-container">
+    <div class="dashboard-header">
+        <h1>Welcome, {{ business.business_name }}!</h1>
+        <p class="card-id">Card ID: <strong>{{ business.card_id }}</strong></p>
+    </div>
+    
+    <!-- Key Metrics -->
+    <div class="metrics-grid">
+        <div class="metric-card">
+            <h3>Total Points</h3>
+            <p class="metric-value">{{ "%.2f"|format(business.total_points) }}</p>
+            <span class="metric-label">Green Points Available</span>
+        </div>
+        <div class="metric-card">
+            <h3>Total Spent</h3>
+            <p class="metric-value">₹{{ "%.2f"|format(business.total_spent) }}</p>
+            <span class="metric-label">LNG Purchases</span>
+        </div>
+        <div class="metric-card">
+            <h3>Points Redeemed</h3>
+            <p class="metric-value">{{ "%.2f"|format(business.total_redeemed) }}</p>
+            <span class="metric-label">Total Redemptions</span>
+        </div>
+        <div class="metric-card green">
+            <h3>CO₂ Saved</h3>
+            <p class="metric-value">{{ "%.2f"|format(business.co2_saved) }}</p>
+            <span class="metric-label">Metric Tons</span>
+        </div>
+    </div>
+    
+    <!-- Action Buttons -->
+    <div class="action-section">
+        <button class="btn btn-primary" onclick="openModal('purchaseModal')">Record Purchase</button>
+        <button class="btn btn-secondary" onclick="openModal('redeemModal')">Redeem Points</button>
+        <button class="btn btn-info" onclick="generateStatement()">Generate Statement</button>
+    </div>
+    
+    <!-- Recent Purchases -->
+    <div class="section">
+        <h2>Recent Purchases</h2>
+        <div id="purchasesList" class="purchases-list">
+            <p>Loading purchases...</p>
+        </div>
+    </div>
+    
+    <!-- Statements -->
+    <div class="section">
+        <h2>Recent Statements</h2>
+        <div id="statementsList" class="statements-list">
+            <p>Loading statements...</p>
+        </div>
+    </div>
+</div>
+
+<!-- Purchase Modal -->
+<div id="purchaseModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('purchaseModal')">&times;</span>
+        <h2>Record LNG Purchase</h2>
+        <form id="purchaseForm">
+            <div class="form-group">
+                <label for="purchase_amount">Purchase Amount (₹)</label>
+                <input type="number" id="purchase_amount" step="0.01" required>
+            </div>
+            <div class="form-group">
+                <label for="lng_quantity">LNG Quantity (Metric Tons)</label>
+                <input type="number" id="lng_quantity" step="0.01" required>
+            </div>
+            <button type="submit" class="btn btn-primary">Record Purchase</button>
+        </form>
+    </div>
+</div>
+
+<!-- Redeem Modal -->
+<div id="redeemModal" class="modal">
+    <div class="modal-content">
+        <span class="close" onclick="closeModal('redeemModal')">&times;</span>
+        <h2>Redeem Green Points</h2>
+        <p id="availablePoints">Available Points: <strong id="pointsValue">0</strong></p>
+        <form id="redeemForm">
+            <div class="form-group">
+                <label for="redeem_points">Points to Redeem</label>
+                <input type="number" id="redeem_points" step="0.01" required>
+            </div>
+            <p id="redeemValue">Amount to be credited: ₹<span id="creditValue">0</span></p>
+            <button type="submit" class="btn btn-primary">Redeem Points</button>
+        </form>
+    </div>
+</div>
+
+<script>
+// Load purchases
+async function loadPurchases() {
+    try {
+        const response = await fetch('/api/purchases');
+        const purchases = await response.json();
+        const list = document.getElementById('purchasesList');
+        
+        if (purchases.length === 0) {
+            list.innerHTML = '<p>No purchases yet</p>';
+            return;
+        }
+        
+        list.innerHTML = purchases.map(p => `
+            <div class="purchase-item">
+                <div class="purchase-info">
+                    <p><strong>Amount:</strong> ₹${p.amount.toFixed(2)}</p>
+                    <p><strong>LNG Quantity:</strong> ${p.lng_quantity.toFixed(2)} MT</p>
+                    <p><strong>Points Earned:</strong> ${p.points_earned.toFixed(2)}</p>
+                    <p><strong>Date:</strong> ${p.date}</p>
+                </div>
+                <span class="status ${p.status}">${p.status}</span>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading purchases:', error);
+    }
+}
+
+// Load statements
+async function loadStatements() {
+    try {
+        const response = await fetch('/api/statements');
+        const statements = await response.json();
+        const list = document.getElementById('statementsList');
+        
+        if (statements.length === 0) {
+            list.innerHTML = '<p>No statements yet</p>';
+            return;
+        }
+        
+        list.innerHTML = statements.map(s => `
+            <div class="statement-item">
+                <div class="statement-info">
+                    <p><strong>Period:</strong> ${s.period_start} to ${s.period_end}</p>
+                    <p><strong>Points Earned:</strong> ${s.points_earned.toFixed(2)}</p>
+                    <p><strong>Points Redeemed:</strong> ${s.points_redeemed.toFixed(2)}</p>
+                    <p><strong>CO₂ Saved:</strong> ${s.co2_saved} MT</p>
+                </div>
+                <span class="statement-date">${s.generated_date}</span>
+            </div>
+        `).join('');
+    } catch (error) {
+        console.error('Error loading statements:', error);
+    }
+}
+
+// Update available points
+async function updatePointsSummary() {
+    try {
+        const response = await fetch('/api/points-summary');
+        const data = await response.json();
+        document.getElementById('pointsValue').textContent = data.total_points.toFixed(2);
+    } catch (error) {
+        console.error('Error updating points:', error);
+    }
+}
+
+// Record purchase
+document.getElementById('purchaseForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const amount = parseFloat(document.getElementById('purchase_amount').value);
+    const quantity = parseFloat(document.getElementById('lng_quantity').value);
+    
+    try {
+        const response = await fetch('/api/record-purchase', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+                purchase_amount: amount,
+                lng_quantity: quantity
+            })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            alert(`Purchase recorded! Points earned: ${data.points_earned.toFixed(2)}`);
+            closeModal('purchaseModal');
+            loadPurchases();
+            updatePointsSummary();
+            document.getElementById('purchaseForm').reset();
+        } else {
+            alert(data.error || 'Failed to record purchase');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to record purchase');
+    }
+});
+
+// Redeem points
+document.getElementById('redeemForm').addEventListener('submit', async (e) => {
+    e.preventDefault();
+    const points = parseFloat(document.getElementById('redeem_points').value);
+    
+    try {
+        const response = await fetch('/api/redeem-points', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({ points })
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            alert(`Points redeemed! Amount credited: ₹${data.amount_credited.toFixed(2)}`);
+            closeModal('redeemModal');
+            updatePointsSummary();
+            document.getElementById('redeemForm').reset();
+        } else {
+            alert(data.error || 'Failed to redeem points');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to redeem points');
+    }
+});
+
+// Generate statement
+async function generateStatement() {
+    try {
+        const response = await fetch('/api/generate-statement', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' }
+        });
+        
+        const data = await response.json();
+        if (response.ok) {
+            alert('Statement generated successfully!');
+            loadStatements();
+        } else {
+            alert('Failed to generate statement');
+        }
+    } catch (error) {
+        console.error('Error:', error);
+        alert('Failed to generate statement');
+    }
+}
+
+// Modal functions
+function openModal(modalId) {
+    document.getElementById(modalId).style.display = 'block';
+    updatePointsSummary();
+}
+
+function closeModal(modalId) {
+    document.getElementById(modalId).style.display = 'none';
+}
+
+// Update redeem value in real-time
+document.getElementById('redeem_points').addEventListener('input', (e) => {
+    const points = parseFloat(e.target.value) || 0;
+    document.getElementById('creditValue').textContent = points.toFixed(2);
+});
+
+// Initialize
+loadPurchases();
+loadStatements();
+updatePointsSummary();
+</script>
+{% endblock %}

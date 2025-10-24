@@ -1,0 +1,44 @@
+{% extends "base.html" %}
+
+{% block title %}Learning Resources - Petronet Green Rewards{% endblock %}
+
+{% block content %}
+<div class="resources-container">
+    <div class="resources-header">
+        <h1>Learning & Resources</h1>
+        <p>Enhance your knowledge about sustainable energy and maximize your Green Rewards</p>
+    </div>
+    
+    <div class="resources-grid">
+        {% for resource in resources %}
+        <div class="resource-card">
+            <h3>{{ resource.title }}</h3>
+            <p>{{ resource.description }}</p>
+            <a href="{{ resource.link }}" class="btn btn-secondary">Learn More</a>
+        </div>
+        {% endfor %}
+    </div>
+    
+    <div class="info-section">
+        <h2>Program Benefits</h2>
+        <div class="benefits-grid">
+            <div class="benefit-item">
+                <h4>💰 Earn Points</h4>
+                <p>Get 2% of your purchase value as Green Points on every LNG purchase</p>
+            </div>
+            <div class="benefit-item">
+                <h4>♻️ Environmental Impact</h4>
+                <p>Track your contribution to reducing carbon emissions and supporting sustainability</p>
+            </div>
+            <div class="benefit-item">
+                <h4>🎁 Redeem Rewards</h4>
+                <p>Use accumulated points to get discounts on your next LNG purchase</p>
+            </div>
+            <div class="benefit-item">
+                <h4>📊 Detailed Analytics</h4>
+                <p>Monitor your consumption patterns and environmental impact with detailed statements</p>
+            </div>
+        </div>
+    </div>
+</div>
+{% endblock %}
